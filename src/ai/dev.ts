@@ -1,1 +1,2 @@
-// Flows will be imported for their side effects in this file.
+import '@/ai/flows/generate-latex-book.ts';
+import '@/ai/flows/refine-latex-content.ts';
