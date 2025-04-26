@@ -5,35 +5,50 @@ import { NextResponse } from "next/server";
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const latexCode = searchParams.get('content');
-    const latexUrl = searchParams.get('url');
+    const latexCode = searchParams.get('content'); // Keep getting 'content' from the frontend request
 
-    if (!latexCode && !latexUrl) {
+    if (!latexCode) {
       return NextResponse.json(
-        { error: 'Either content or url parameter must be provided' },
+        { error: 'The content parameter must be provided' },
         { status: 400 }
       )
     }
-    let apiUrl = "https://latex.ytotech.com/builds/sync";
-    if (latexCode) {
-      apiUrl += `?content=${encodeURIComponent(latexCode)}`;
-    } else if (latexUrl) {
-      apiUrl += `?url=${encodeURIComponent(latexUrl)}`;
-    }
+
+    // Use the new endpoint and parameter name 'text'
+    const apiUrl = `https://latexonline.cc/compile?text=${encodeURIComponent(latexCode)}`;
 
     try {
+      // The new endpoint might directly return the PDF, or a JSON response.
+      // Let's assume it returns the PDF directly for now, similar to the old one.
+      // Adjust error handling/response parsing if needed based on latexonline.cc's actual behavior.
       const response = await fetch(apiUrl);
+
       if (response.ok) {
         const blob = await response.blob();
-        const arrayBuffer = await blob.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        const base64 = buffer.toString("base64");
-        const pdfDataUrl = `data:application/pdf;base64,${base64}`;
-        return NextResponse.json({ pdfUrl: pdfDataUrl });
+        // Ensure the response is actually a PDF
+        if (blob.type === 'application/pdf') {
+            const arrayBuffer = await blob.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+            const base64 = buffer.toString("base64");
+            const pdfDataUrl = `data:application/pdf;base64,${base64}`;
+            return NextResponse.json({ pdfUrl: pdfDataUrl });
+        } else {
+            // If it's not a PDF, it might be an error message from latexonline.cc
+            const errorText = await response.text();
+             return NextResponse.json(
+              {
+                error: `Compilation failed: ${response.statusText}. ${errorText}`,
+              },
+              {
+                status: response.status,
+              }
+            );
+        }
       } else {
-        return NextResponse.json(
+         const errorText = await response.text();
+         return NextResponse.json(
           {
-            error: `Compilation failed: ${response.statusText}`,
+            error: `Compilation failed: ${response.statusText}. ${errorText}`,
           },
           {
             status: response.status,
@@ -42,10 +57,10 @@ export async function GET(req: Request) {
       }
     } catch (error: any) {
       console.error("Compilation error:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: `Network or fetch error: ${error.message}` }, { status: 500 });
     }
   } catch (error: any) {
-    console.error("Compilation error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Request processing error:", error);
+    return NextResponse.json({ error: `Internal server error: ${error.message}` }, { status: 500 });
   }
 }
