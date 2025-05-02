@@ -86,15 +86,16 @@ const ChatScreen: React.FC<ChatScreenProps> = ({onCreate, latexCode = '', chatHi
     <div className="flex flex-col h-full p-4">
       <div className="flex-grow space-y-4 overflow-y-auto">
         {chatHistory.map((message, index) => (
-          <div
-            key={index}
-            className={`p-3 rounded-lg ${
-              message.role === 'user'
-                ? 'bg-secondary text-secondary-foreground self-end'
-                : 'bg-muted text-muted-foreground self-start'
-            }`}
-          >
-            {message.chatMessage}
+          <div key={index} className="w-full flex">
+            <div
+              className={`p-3 rounded-lg max-w-[75%] break-words inline-block ${
+                message.role === 'user'
+                  ? 'bg-secondary text-secondary-foreground self-end ml-auto'
+                  : 'bg-muted text-muted-foreground self-start mr-auto'
+              }`}
+            >
+              {message.chatMessage}
+            </div>
           </div>
         ))}
       </div>
