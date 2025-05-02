@@ -1,0 +1,6 @@
+Iterative improvement
+Login and saving documents
+Select code and edit with ai
+ability to insert images
+multifile compilation
+make a full research report given data, images etc..

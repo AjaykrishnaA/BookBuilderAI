@@ -15,7 +15,8 @@ export async function GET(req: Request) {
     }
 
     // Use the new endpoint and parameter name 'text'
-    const apiUrl = `https://latexonline.cc/compile?text=${encodeURIComponent(latexCode)}`;
+    // const apiUrl = `https://latexonline.cc/compile?text=${encodeURIComponent(latexCode)}`;
+    const apiUrl = `http://localhost:2700/compile?text=${encodeURIComponent(latexCode)}`;
 
     try {
       // The new endpoint might directly return the PDF, or a JSON response.

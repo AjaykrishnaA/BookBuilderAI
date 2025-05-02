@@ -8,18 +8,22 @@ import {refineLatexContent} from '@/ai/flows/refine-latex-content';
 
 interface ChatScreenProps {
   onCreate: (latexCode: string) => void;
+  latexCode?: string;
+  chatHistory: {role: 'user' | 'assistant'; chatMessage: string}[];
+  setChatHistory: React.Dispatch<React.SetStateAction<{role: 'user' | 'assistant'; chatMessage: string}[]>>;
 }
 
-const ChatScreen: React.FC<ChatScreenProps> = ({onCreate}) => {
+const ChatScreen: React.FC<ChatScreenProps> = ({onCreate, latexCode = '', chatHistory, setChatHistory}) => {
   const [prompt, setPrompt] = useState<string>('');
-  const [chatHistory, setChatHistory] = useState<
-    {role: 'user' | 'assistant'; content: string}[]
-  >([]);
   const [loading, setLoading] = useState<boolean>(false);
 
   const handleSend = async () => {
+    if (!prompt.trim()) return;
+    
     setLoading(true);
-    setChatHistory([...chatHistory, {role: 'user', content: prompt}]);
+    const newMessage = {role: 'user' as const, chatMessage: prompt};
+    const updatedHistory = [...chatHistory, newMessage];
+    setChatHistory(updatedHistory);
 
     if (chatHistory.length === 0) {
       // Initial book generation
@@ -27,15 +31,16 @@ const ChatScreen: React.FC<ChatScreenProps> = ({onCreate}) => {
         const result = await generateLatexBook({prompt: prompt});
         setChatHistory(prevChatHistory => [
           ...prevChatHistory,
-          {role: 'assistant', content: 'Here is the initial LaTeX code.'},
+          {role: 'assistant', chatMessage: result.chatMessage},
         ]);
         onCreate(result.latexCode);
+        console.log('Initial LaTeX code generated');
       } catch (error: any) {
         setChatHistory(prevChatHistory => [
           ...prevChatHistory,
           {
             role: 'assistant',
-            content: `Error generating LaTeX code: ${error.message}`,
+            chatMessage: `Error generating LaTeX code: ${error.message}`,
           },
         ]);
       } finally {
@@ -44,35 +49,30 @@ const ChatScreen: React.FC<ChatScreenProps> = ({onCreate}) => {
     } else {
       // Refine existing LaTeX code
       try {
-        // Assuming you have stored the LaTeX code in a state variable
-        const lastLatexCode = chatHistory.findLast(
-          message => message.role === 'assistant'
-        )?.content;
-
-        if (!lastLatexCode) {
-          throw new Error('No previous LaTeX code found in chat history.');
+        if (!latexCode) {
+          throw new Error('No previous LaTeX code found.');
         }
-
-        // Call refineLatexContent to get refined LaTeX code
+        console.log("latexCodeBeforeRefining : ", latexCode);
         const result = await refineLatexContent({
-          latexContent: lastLatexCode,
-          chatHistory: [...chatHistory, {role: 'user', content: prompt}],
+          latexContent: latexCode,
+          chatHistory: [...chatHistory, {role: 'user', chatMessage: prompt}],
           prompt: prompt,
         });
+        console.log("latexCodeAfterRefining : ", result.refinedLatexContent);
         setChatHistory(prevChatHistory => [
           ...prevChatHistory,
           {
             role: 'assistant',
-            content: result.refinedLatexContent,
+            chatMessage: result.chatMessage,
           },
         ]);
-        onCreate(result.refinedLatexContent); // Update LaTeX code state
+        onCreate(result.refinedLatexContent);
       } catch (error: any) {
         setChatHistory(prevChatHistory => [
           ...prevChatHistory,
           {
             role: 'assistant',
-            content: `Error refining LaTeX code: ${error.message}`,
+            chatMessage: `Error refining LaTeX code: ${error.message}`,
           },
         ]);
       } finally {
@@ -94,7 +94,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({onCreate}) => {
                 : 'bg-muted text-muted-foreground self-start'
             }`}
           >
-            {message.content}
+            {message.chatMessage}
           </div>
         ))}
       </div>

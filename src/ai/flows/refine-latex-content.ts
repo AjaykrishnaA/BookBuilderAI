@@ -9,12 +9,18 @@
 
 import {ai} from '@/ai/ai-instance';
 import {z} from 'genkit';
+import Handlebars from 'handlebars';
+
+// Register the 'eq' helper for Handlebars
+Handlebars.registerHelper('eq', function(arg1, arg2) {
+  return arg1 === arg2;
+});
 
 const RefineLatexContentInputSchema = z.object({
   latexContent: z.string().describe('The LaTeX content to refine.'),
   chatHistory: z.array(z.object({
     role: z.enum(['user', 'assistant']),
-    content: z.string(),
+    chatMessage: z.string(),
   })).describe('The chat history of the conversation.'),
   prompt: z.string().describe('User prompt to refine the current latex content.'),
 });
@@ -22,6 +28,7 @@ export type RefineLatexContentInput = z.infer<typeof RefineLatexContentInputSche
 
 const RefineLatexContentOutputSchema = z.object({
   refinedLatexContent: z.string().describe('The refined LaTeX content.'),
+  chatMessage: z.string().describe('The message to display in the chat interface.'),
 });
 export type RefineLatexContentOutput = z.infer<typeof RefineLatexContentOutputSchema>;
 
@@ -36,7 +43,7 @@ const prompt = ai.definePrompt({
       latexContent: z.string().describe('The LaTeX content to refine.'),
       chatHistory: z.array(z.object({
         role: z.enum(['user', 'assistant']),
-        content: z.string(),
+        chatMessage: z.string(),
       })).describe('The chat history of the conversation.'),
       prompt: z.string().describe('User prompt to refine the current latex content.'),
     }),
@@ -44,17 +51,23 @@ const prompt = ai.definePrompt({
   output: {
     schema: z.object({
       refinedLatexContent: z.string().describe('The refined LaTeX content.'),
+      chatMessage: z.string().describe('The message to display in the chat interface.'),
     }),
   },
   prompt: `You are an AI assistant specialized in refining LaTeX content. A user is creating a book and wants to use you to refine the latex content iteratively based on their feedback.
 
-      Here is the current LaTeX content:\n\n      {{{latexContent}}}\n\n      Here is the chat history:\n      {{#each chatHistory}}\n        {{#if (eq this.role \"user\")}}\n          User: {{{this.content}}}\n        {{else}}
-          Assistant: {{{this.content}}}\n        {{/if}}\n      {{/each}}\n
+      Here is the current LaTeX content:\n\n      {{{latexContent}}}\n\n      Here is the chat history:\n      {{#each chatHistory}}\n        {{#if (this.role)}}
+          {{#if (this.role 'user')}}
+            User: {{{this.chatMessage}}}
+          {{else}}
+            Assistant: {{{this.chatMessage}}}
+          {{/if}}
+        {{/if}}\n      {{/each}}\n
       Based on the chat history and the following prompt, refine the LaTeX content.
       Prompt: {{{prompt}}}
 
       Make sure the LaTeX content is valid and compiles without errors.
-      Return only the refined LaTeX content.
+      Return both the refined LaTeX content and a friendly message explaining the changes made.
 `,
 });
 

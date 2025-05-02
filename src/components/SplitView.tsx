@@ -9,15 +9,18 @@ import ChatScreen from './ChatScreen';
 
 interface SplitViewProps {
   initialLatexCode: string;
+  chatHistory: {role: 'user' | 'assistant'; chatMessage: string}[];
+  setChatHistory: React.Dispatch<React.SetStateAction<{role: 'user' | 'assistant'; chatMessage: string}[]>>;
 }
 
-const SplitView: React.FC<SplitViewProps> = ({initialLatexCode}) => {
+const SplitView: React.FC<SplitViewProps> = ({initialLatexCode, chatHistory, setChatHistory}) => {
   const [showChat, setShowChat] = useState<boolean>(false);
   const [latexCode, setLatexCode] = useState<string>(initialLatexCode);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const pdfViewerRef = useRef<HTMLIFrameElement>(null);
-  const handleLatexCodeChange = (newLatexCode: string) => {
+  const debounceTimerRef = useRef<NodeJS.Timeout>();
 
+  const handleLatexCodeChange = (newLatexCode: string) => {
     setLatexCode(newLatexCode);
   };
 
@@ -143,23 +146,47 @@ const SplitView: React.FC<SplitViewProps> = ({initialLatexCode}) => {
   return (
     <div className="flex h-full">
       {/* Left Pane */}
-      <div className="w-1/2 p-4 relative">
-        <Button
-          onClick={() => setShowChat(!showChat)}
-          className="absolute top-4 left-4 z-10"
-        >
-          {showChat ? 'Show Editor' : 'Show Chat'}
-        </Button>
-        {showChat ? (
-          <ChatScreen onCreate={handleLatexCodeChange} />
-        ) : (
-          <Textarea
-            value={latexCode}
-            onChange={e => setLatexCode(e.target.value)}
-            placeholder="Enter LaTeX code here"
-            className="font-mono h-full"
-          />
-        )}
+      <div className="w-1/2 p-4 relative flex flex-col">
+        <div className="mb-2">
+          <Button
+            onClick={() => setShowChat(!showChat)}
+          >
+            {showChat ? 'Show Editor' : 'Show Chat'}
+          </Button>
+        </div>
+        <div className="flex-1">
+          {showChat ? (
+            <ChatScreen 
+              onCreate={handleLatexCodeChange} 
+              latexCode={latexCode}
+              chatHistory={chatHistory}
+              setChatHistory={setChatHistory}
+            />
+          ) : (
+            <Textarea
+              value={latexCode}
+              onChange={e => {
+                const target = e.target;
+                const newValue = target.value;
+                const cursorPosition = target.selectionStart;
+                
+                if (debounceTimerRef.current) {
+                  clearTimeout(debounceTimerRef.current);
+                }
+                
+                debounceTimerRef.current = setTimeout(() => {
+                  setLatexCode(newValue);
+                  // Restore cursor position after state update
+                  requestAnimationFrame(() => {
+                    target.setSelectionRange(cursorPosition, cursorPosition);
+                  });
+                }, 3000); // 500ms delay
+              }}
+              placeholder="Enter LaTeX code here"
+              className="font-mono h-full"
+            />
+          )}
+        </div>
       </div>
 
       {/* Right Pane (Preview) */}

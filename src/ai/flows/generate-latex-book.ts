@@ -17,6 +17,7 @@ export type GenerateLatexBookInput = z.infer<typeof GenerateLatexBookInputSchema
 
 const GenerateLatexBookOutputSchema = z.object({
   latexCode: z.string().describe('The LaTeX code for the book content.'),
+  chatMessage: z.string().describe('The message to display in the chat interface.'),
 });
 export type GenerateLatexBookOutput = z.infer<typeof GenerateLatexBookOutputSchema>;
 
@@ -34,6 +35,7 @@ const generateLatexBookPrompt = ai.definePrompt({
   output: {
     schema: z.object({
       latexCode: z.string().describe('The LaTeX code for the book content.'),
+      chatMessage: z.string().describe('The message to display in the chat interface.'),
     }),
   },
   prompt: `You are a LaTeX expert. Generate LaTeX code for a book based on the following prompt:\n\nPrompt: {{{prompt}}}\n\nLaTeX Code: `,
