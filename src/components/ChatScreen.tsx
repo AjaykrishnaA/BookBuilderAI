@@ -1,6 +1,6 @@
 'use client';
 
-import {useState} from 'react';
+import {useState, useRef, useEffect} from 'react';
 import {Button} from '@/components/ui/button';
 import {Textarea} from '@/components/ui/textarea';
 import {generateLatexBook} from '@/ai/flows/generate-latex-book';
@@ -16,6 +16,13 @@ interface ChatScreenProps {
 const ChatScreen: React.FC<ChatScreenProps> = ({onCreate, latexCode = '', chatHistory, setChatHistory}) => {
   const [prompt, setPrompt] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [chatHistory]);
 
   const handleSend = async () => {
     if (!prompt.trim()) return;
@@ -84,9 +91,12 @@ const ChatScreen: React.FC<ChatScreenProps> = ({onCreate, latexCode = '', chatHi
 
   return (
     <div className="flex flex-col h-full p-4">
-      <div className="flex-grow space-y-4 overflow-y-auto">
+      <div
+        ref={chatContainerRef}
+        className="chat-scrollbar flex-grow min-h-0 max-h-[78.5vh] space-y-4 overflow-y-auto"
+      >
         {chatHistory.map((message, index) => (
-          <div key={index} className="w-full flex">
+          <div key={index} className="w-full flex px-2">
             <div
               className={`p-3 rounded-lg max-w-[75%] break-words inline-block ${
                 message.role === 'user'
@@ -99,7 +109,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({onCreate, latexCode = '', chatHi
           </div>
         ))}
       </div>
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center space-x-2 mt-2">
         <Textarea
           value={prompt}
           onChange={e => setPrompt(e.target.value)}
