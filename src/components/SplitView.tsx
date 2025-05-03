@@ -17,6 +17,7 @@ const SplitView: React.FC<SplitViewProps> = ({initialLatexCode, chatHistory, set
   const [showChat, setShowChat] = useState<boolean>(false);
   const [latexCode, setLatexCode] = useState<string>(initialLatexCode);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [autoCompile, setAutoCompile] = useState<boolean>(true);
   const pdfViewerRef = useRef<HTMLIFrameElement>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout>();
 
@@ -36,7 +37,7 @@ const SplitView: React.FC<SplitViewProps> = ({initialLatexCode, chatHistory, set
 
         if (!response.ok) {
           retryCount++;
-          console.log(`Attempt ${retryCount} failed with status ${response.status}. Retrying in ${delay}ms`);
+          console.log(`Compile attempt ${retryCount} failed with status ${response.status}. Retrying in ${delay/1000} seconds`);
           await new Promise(resolve => setTimeout(resolve, delay));
           delay = Math.min(5000, delay * 2); // Exponential backoff, capped at 5000ms
           continue; // Retry
@@ -68,69 +69,22 @@ const SplitView: React.FC<SplitViewProps> = ({initialLatexCode, chatHistory, set
   };
 
   const handleRegenerate = () => {
-      if (latexCode){
-          compileLatex()
-      }
+    if (latexCode) {
+      compileLatex();
+    }
   };
 
   const handleRefresh = () => {
-    let retryCount = 0;
-      let delay = 1000;
-      const maxRetries = 10;
-      if (pdfUrl && pdfViewerRef.current) {
-        const timestamp = new Date().getTime();
-        pdfViewerRef.current.src = `${pdfUrl}?t=${timestamp}`;
-        delay = Math.min(5000, delay * 2);
-      }
-    };
-
+    if (pdfUrl && pdfViewerRef.current) {
+      const timestamp = new Date().getTime();
+      pdfViewerRef.current.src = `${pdfUrl}?t=${timestamp}`;
+    }
+  };
 
   useEffect(() => {
-    const compileLatex = async () => {
-      const maxRetries = 20;
-      let retryCount = 0;
-      let delay = 1000; // Initial delay of 1 second
-
-      while (retryCount < maxRetries) {
-        const url = `/api/compile?content=${encodeURIComponent(latexCode)}`;
-        try {
-          const response = await fetch(url);
-
-          if (!response.ok) {
-            retryCount++;
-            console.log(`Attempt ${retryCount} failed with status ${response.status}. Retrying in ${delay}ms`);
-            await new Promise(resolve => setTimeout(resolve, delay));
-            delay = Math.min(5000, delay * 2); // Exponential backoff, capped at 5000ms
-            continue; // Retry
-          }
-
-          const data = await response.json();
-          if (!data.pdfUrl) {
-            throw new Error(data.error || 'Failed to compile LaTeX');
-          }
-          setPdfUrl(data.pdfUrl);
-          return; // Success, exit the loop
-        } catch (error: any) {
-          console.error('Failed to compile LaTeX:', error);
-          toast({
-            title: 'Compilation Failed',
-            description: `Failed to compile LaTeX after multiple retries: ${error.message}`,
-            variant: 'destructive',
-          });
-          return; // Exit the loop after a non-recoverable error
-        }
-      }
-
-      // If max retries reached
-      toast({
-        title: 'Compilation Failed',
-        description: 'Maximum retry attempts reached. Please check your LaTeX code and try again.',
-        variant: 'destructive',
-      });
-    };
-
+    if (!autoCompile) return; // Skip auto-compilation if disabled
     compileLatex();
-  }, [latexCode]);
+  }, [latexCode, autoCompile]);
 
   const handleDownload = () => {
     if (pdfUrl) {
@@ -194,12 +148,16 @@ const SplitView: React.FC<SplitViewProps> = ({initialLatexCode, chatHistory, set
         {pdfUrl ? (
           <>
             <div className="flex justify-end space-x-2 mb-2">
-            
+              <Button 
+                variant={autoCompile ? "default" : "outline"}
+                onClick={() => setAutoCompile(!autoCompile)}
+              >
+                {autoCompile ? 'Auto Compile: On' : 'Auto Compile: Off'}
+              </Button>
               <Button onClick={handleRegenerate} >
                 Regenerate PDF
               </Button>
               <Button onClick={handleRefresh}>Refresh PDF</Button>
-
               <Button onClick={handleDownload} >
                   Download PDF
               </Button>            
