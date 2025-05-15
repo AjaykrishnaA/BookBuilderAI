@@ -4,73 +4,76 @@ import {useState, useEffect, useRef} from 'react';
 import {Button} from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {Textarea} from '@/components/ui/textarea';
-import {toast} from '@/hooks/use-toast';
 import ChatScreen from './ChatScreen';
+import { useLatexCompiler } from '@/hooks/use-latex-compiler';
+import { useToast } from '@/hooks/use-toast';
 
 interface SplitViewProps {
   initialLatexCode: string;
+  initialPdfUrl: string | null;
+  bookId?: string;
   chatHistory: {role: 'user' | 'assistant'; chatMessage: string}[];
   setChatHistory: React.Dispatch<React.SetStateAction<{role: 'user' | 'assistant'; chatMessage: string}[]>>;
 }
 
-const SplitView: React.FC<SplitViewProps> = ({initialLatexCode, chatHistory, setChatHistory}) => {
+const SplitView: React.FC<SplitViewProps> = ({
+  initialLatexCode, 
+  initialPdfUrl, 
+  bookId,
+  chatHistory, 
+  setChatHistory
+}) => {
   const [showChat, setShowChat] = useState<boolean>(false);
   const [latexCode, setLatexCode] = useState<string>(initialLatexCode);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(initialPdfUrl);
   const [autoCompile, setAutoCompile] = useState<boolean>(true);
   const pdfViewerRef = useRef<HTMLIFrameElement>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout>();
+  const { compileLatex, isCompiling } = useLatexCompiler();
+  const { toast } = useToast();
 
-  const handleLatexCodeChange = (newLatexCode: string) => {
+  const handleLatexCodeChange = async (newLatexCode: string) => {
     setLatexCode(newLatexCode);
-  };
-
-  const compileLatex = async () => {
-    const maxRetries = 20;
-    let retryCount = 0;
-    let delay = 1000; // Initial delay of 1 second
-
-    while (retryCount < maxRetries) {
-      const url = `/api/compile?content=${encodeURIComponent(latexCode)}`;
-      try {
-        const response = await fetch(url);
-
-        if (!response.ok) {
-          retryCount++;
-          console.log(`Compile attempt ${retryCount} failed with status ${response.status}. Retrying in ${delay/1000} seconds`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-          delay = Math.min(5000, delay * 2); // Exponential backoff, capped at 5000ms
-          continue; // Retry
+    if (autoCompile) {
+      const result = await compileLatex(newLatexCode);
+      if (result.pdfUrl) {
+        setPdfUrl(result.pdfUrl);
+        // Update book in database if we have a bookId
+        if (bookId) {
+          try {
+            const response = await fetch('/api/books', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id: bookId,
+                latexContent: newLatexCode,
+              }),
+            });
+            if (!response.ok) {
+              toast({
+                title: "Error",
+                description: "Failed to update book in database",
+                variant: "destructive",
+              });
+            }
+          } catch (error) {
+            toast({
+              title: "Error",
+              description: "Failed to connect to database",
+              variant: "destructive",
+            });
+          }
         }
-
-        const data = await response.json();
-        if (!data.pdfUrl) {
-          throw new Error(data.error || 'Failed to compile LaTeX');
-        }
-        setPdfUrl(data.pdfUrl);
-        return; // Success, exit the loop
-      } catch (error: any) {
-        console.error('Failed to compile LaTeX:', error);
-        toast({
-          title: 'Compilation Failed',
-          description: `Failed to compile LaTeX after multiple retries: ${error.message}`,
-          variant: 'destructive',
-        });
-        return; // Exit the loop after a non-recoverable error
       }
     }
-
-    // If max retries reached
-    toast({
-      title: 'Compilation Failed',
-      description: 'Maximum retry attempts reached. Please check your LaTeX code and try again.',
-      variant: 'destructive',
-    });
   };
 
-  const handleRegenerate = () => {
+  const handleRegenerate = async () => {
     if (latexCode) {
-      compileLatex();
+      const result = await compileLatex(latexCode);
+      if (result.pdfUrl) {
+        setPdfUrl(result.pdfUrl);
+      }
     }
   };
 
@@ -80,11 +83,6 @@ const SplitView: React.FC<SplitViewProps> = ({initialLatexCode, chatHistory, set
       pdfViewerRef.current.src = `${pdfUrl}?t=${timestamp}`;
     }
   };
-
-  useEffect(() => {
-    if (!autoCompile) return; // Skip auto-compilation if disabled
-    compileLatex();
-  }, [latexCode, autoCompile]);
 
   const handleDownload = () => {
     if (pdfUrl) {
@@ -129,12 +127,12 @@ const SplitView: React.FC<SplitViewProps> = ({initialLatexCode, chatHistory, set
                 }
                 
                 debounceTimerRef.current = setTimeout(() => {
-                  setLatexCode(newValue);
+                  handleLatexCodeChange(newValue);
                   // Restore cursor position after state update
                   requestAnimationFrame(() => {
                     target.setSelectionRange(cursorPosition, cursorPosition);
                   });
-                }, 3000); // 500ms delay
+                }, 3000);
               }}
               placeholder="Enter LaTeX code here"
               className="font-mono h-full"
@@ -154,12 +152,15 @@ const SplitView: React.FC<SplitViewProps> = ({initialLatexCode, chatHistory, set
               >
                 {autoCompile ? 'Auto Compile: On' : 'Auto Compile: Off'}
               </Button>
-              <Button onClick={handleRegenerate} >
-                Regenerate PDF
+              <Button 
+                onClick={handleRegenerate}
+                disabled={isCompiling}
+              >
+                {isCompiling ? 'Compiling...' : 'Regenerate PDF'}
               </Button>
               <Button onClick={handleRefresh}>Refresh PDF</Button>
-              <Button onClick={handleDownload} >
-                  Download PDF
+              <Button onClick={handleDownload}>
+                Download PDF
               </Button>            
             </div>
             <iframe
@@ -171,10 +172,8 @@ const SplitView: React.FC<SplitViewProps> = ({initialLatexCode, chatHistory, set
           </>
         ) : (
           <div className="flex-grow">
-              <Skeleton className="h-full w-full" />
-            
+            <Skeleton className="h-full w-full" />
           </div>
-
         )}
       </div>
     </div>

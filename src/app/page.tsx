@@ -1,68 +1,45 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import {useState} from 'react';
 import ChatScreen from '@/components/ChatScreen';
 import SplitView from '@/components/SplitView';
+import { useLatexCompiler } from '@/hooks/use-latex-compiler';
 
 export default function Home() {
-  const { data: session, status } = useSession();
-  const router = useRouter();
+  const [latexCode, setLatexCode] = useState<string>('');
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [showSplitView, setShowSplitView] = useState<boolean>(false);
+  const [bookId, setBookId] = useState<string | undefined>();
+  const [chatHistory, setChatHistory] = useState<
+    {role: 'user' | 'assistant'; chatMessage: string}[]
+  >([]);
+  const { compileLatex } = useLatexCompiler();
 
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login');
-    }
-  }, [status, router]);
-
-  if (status === 'loading') {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Loading...</div>
-      </div>
-    );
-  }
-
-  if (!session) {
-    return null; // Will redirect in useEffect
-  }
+  const handleCreate = async (initialLatexCode: string, compiledPdfUrl: string, bookId?: string) => {
+    setLatexCode(initialLatexCode);
+    setPdfUrl(compiledPdfUrl);
+    setBookId(bookId);
+    setShowSplitView(true);
+  };
 
   return (
     <div className="flex flex-col h-screen">
-      <nav className="bg-background border-b p-4 flex justify-between items-center">
-        <h1 className="text-xl font-semibold">Book Builder AI</h1>
-        <div className="flex items-center gap-4">
-          <span>{session.user?.email}</span>
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="text-sm hover:underline"
-          >
-            Dashboard
-          </button>
-        </div>
-      </nav>
-      <main className="flex-1">
+      {!showSplitView ? (
         <ChatScreen 
-          onCreate={(latexCode) => {
-            // Save the book first, then redirect to edit page
-            fetch('/api/books', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                title: 'Untitled Book',
-                latexContent: latexCode,
-              }),
-            })
-              .then((res) => res.json())
-              .then((book) => {
-                router.push(`/dashboard`);
-              });
-          }}
+          onCreate={handleCreate} 
+          latexCode={latexCode}
+          chatHistory={chatHistory}
+          setChatHistory={setChatHistory}
         />
-      </main>
+      ) : (
+        <SplitView 
+          initialLatexCode={latexCode}
+          initialPdfUrl={pdfUrl}
+          bookId={bookId}
+          chatHistory={chatHistory}
+          setChatHistory={setChatHistory}
+        />
+      )}
     </div>
   );
 }

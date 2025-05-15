@@ -5,9 +5,11 @@ import {Button} from '@/components/ui/button';
 import {Textarea} from '@/components/ui/textarea';
 import {generateLatexBook} from '@/ai/flows/generate-latex-book';
 import {refineLatexContent} from '@/ai/flows/refine-latex-content';
+import { useLatexCompiler } from '@/hooks/use-latex-compiler';
+import { useToast } from '@/hooks/use-toast';
 
 interface ChatScreenProps {
-  onCreate: (latexCode: string) => void;
+  onCreate: (latexCode: string, pdfUrl: string, bookId?: string) => void;
   latexCode?: string;
   chatHistory: {role: 'user' | 'assistant'; chatMessage: string}[];
   setChatHistory: React.Dispatch<React.SetStateAction<{role: 'user' | 'assistant'; chatMessage: string}[]>>;
@@ -17,12 +19,24 @@ const ChatScreen: React.FC<ChatScreenProps> = ({onCreate, latexCode = '', chatHi
   const [prompt, setPrompt] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const { compileLatex, isCompiling } = useLatexCompiler();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
   }, [chatHistory]);
+
+  const extractTitleFromPrompt = (prompt: string): string => {
+    // Try to find a title-like phrase at the start of the prompt
+    const titleMatch = prompt.match(/^(?:create |write |generate )?(?:a |an )?(?:book |)(?:about |on |for |titled |called |named )?["']?([^"'.!?]+)["']?[.!?]?/i);
+    if (titleMatch) {
+      return titleMatch[1].trim();
+    }
+    // Fallback: take first few words
+    return prompt.split(' ').slice(0, 4).join(' ');
+  };
 
   const handleSend = async () => {
     if (!prompt.trim()) return;
@@ -40,14 +54,54 @@ const ChatScreen: React.FC<ChatScreenProps> = ({onCreate, latexCode = '', chatHi
           ...prevChatHistory,
           {role: 'assistant', chatMessage: result.chatMessage},
         ]);
-        onCreate(result.latexCode);
-        console.log('Initial LaTeX code generated');
+        
+        // Compile the initial LaTeX code
+        const compileResult = await compileLatex(result.latexCode);
+        if (compileResult.pdfUrl) {
+          // Create new book in database
+          try {
+            const response = await fetch('/api/books', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                title: extractTitleFromPrompt(prompt),
+                latexContent: result.latexCode,
+              }),
+            });
+            
+            if (!response.ok) {
+              toast({
+                title: "Error",
+                description: "Failed to create book in database",
+                variant: "destructive",
+              });
+              onCreate(result.latexCode, compileResult.pdfUrl);
+            } else {
+              const book = await response.json();
+              onCreate(result.latexCode, compileResult.pdfUrl, book.id);
+            }
+          } catch (error: any) {
+            console.error('Error creating book:', error);
+            toast({
+              title: "Error",
+              description: "Failed to connect to database",
+              variant: "destructive",
+            });
+            // Still call onCreate even if database creation fails
+            onCreate(result.latexCode, compileResult.pdfUrl);
+          }
+        }
       } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to generate book",
+          variant: "destructive",
+        });
         setChatHistory(prevChatHistory => [
           ...prevChatHistory,
           {
             role: 'assistant',
-            chatMessage: `Error generating LaTeX code: ${error.message}`,
+            chatMessage: `Error: ${error.message}`,
           },
         ]);
       } finally {
@@ -59,13 +113,17 @@ const ChatScreen: React.FC<ChatScreenProps> = ({onCreate, latexCode = '', chatHi
         if (!latexCode) {
           throw new Error('No previous LaTeX code found.');
         }
-        console.log("latexCodeBeforeRefining : ", latexCode);
         const result = await refineLatexContent({
           latexContent: latexCode,
           chatHistory: [...chatHistory, {role: 'user', chatMessage: prompt}],
           prompt: prompt,
         });
-        console.log("latexCodeAfterRefining : ", result.refinedLatexContent);
+        
+        // Compile the refined LaTeX code
+        const compileResult = await compileLatex(result.refinedLatexContent);
+        if (compileResult.pdfUrl) {
+          onCreate(result.refinedLatexContent, compileResult.pdfUrl);
+        }
         setChatHistory(prevChatHistory => [
           ...prevChatHistory,
           {
@@ -73,8 +131,12 @@ const ChatScreen: React.FC<ChatScreenProps> = ({onCreate, latexCode = '', chatHi
             chatMessage: result.chatMessage,
           },
         ]);
-        onCreate(result.refinedLatexContent);
       } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to refine LaTeX content",
+          variant: "destructive",
+        });
         setChatHistory(prevChatHistory => [
           ...prevChatHistory,
           {

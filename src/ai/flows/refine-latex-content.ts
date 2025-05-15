@@ -9,12 +9,6 @@
 
 import {ai} from '@/ai/ai-instance';
 import {z} from 'genkit';
-import Handlebars from 'handlebars';
-
-// Register the 'eq' helper for Handlebars
-Handlebars.registerHelper('eq', function(arg1, arg2) {
-  return arg1 === arg2;
-});
 
 const RefineLatexContentInputSchema = z.object({
   latexContent: z.string().describe('The LaTeX content to refine.'),

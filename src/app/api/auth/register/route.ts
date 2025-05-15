@@ -1,5 +1,30 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcrypt";
+
+const prisma = new PrismaClient();
+
+async function getUserByEmail(email: string) {
+  return await prisma.user.findUnique({
+    where: { email },
+  });
+}
+
+async function createUser({ name, email, password }: { 
+  name: string; 
+  email: string; 
+  password: string; 
+}) {
+  const hashedPassword = await bcrypt.hash(password, 10);
+  
+  return await prisma.user.create({
+    data: {
+      name,
+      email,
+      password: hashedPassword,
+    },
+  });
+}
 
 export async function POST(req: Request) {
   try {
@@ -34,5 +59,7 @@ export async function POST(req: Request) {
       { error: "Error creating user" },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }

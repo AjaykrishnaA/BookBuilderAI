@@ -1,4 +1,4 @@
-# **App Name**: LatexCraft AI
+# **App Name**: BookBuilder AI
 
 ## Core Features:
 
