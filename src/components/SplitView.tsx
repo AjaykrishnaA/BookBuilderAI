@@ -76,11 +76,20 @@ const SplitView: React.FC<SplitViewProps> = ({
       }
     }
   };
-
   const handleRefresh = () => {
     if (pdfUrl && pdfViewerRef.current) {
-      const timestamp = new Date().getTime();
-      pdfViewerRef.current.src = `${pdfUrl}?t=${timestamp}`;
+      // Store the original URL
+      const originalUrl = pdfUrl;
+      
+      // Temporarily change the src to force refresh
+      pdfViewerRef.current.src = 'about:blank';
+      
+      // Return to original URL in the next tick
+      setTimeout(() => {
+        if (pdfViewerRef.current) {
+          pdfViewerRef.current.src = originalUrl;
+        }
+      }, 0);
     }
   };
 
