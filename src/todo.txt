@@ -1,7 +1,0 @@
-Before changing the home componentin page.tsx Do the planningof compensating for the codein the same file.
-after planningthis you can continue by updating the home page to redirect unauthenticated users to the login page and authenticated users to the dashboard
-Login and saving documents
-Select code and edit with ai
-ability to insert images
-multifile compilation
-make a full research report given data, images etc..
