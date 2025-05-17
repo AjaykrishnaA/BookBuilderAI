@@ -32,39 +32,57 @@ const SplitView: React.FC<SplitViewProps> = ({
   const { compileLatex, isCompiling } = useLatexCompiler();
   const { toast } = useToast();
 
-  const handleLatexCodeChange = async (newLatexCode: string) => {
-    setLatexCode(newLatexCode);
-    if (autoCompile) {
-      const result = await compileLatex(newLatexCode);
-      if (result.pdfUrl) {
-        setPdfUrl(result.pdfUrl);
-        // Update book in database if we have a bookId
-        if (bookId) {
-          try {
-            const response = await fetch('/api/books', {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                id: bookId,
-                latexContent: newLatexCode,
-              }),
-            });
-            if (!response.ok) {
-              toast({
-                title: "Error",
-                description: "Failed to update book in database",
-                variant: "destructive",
-              });
-            }
-          } catch (error) {
+  const compileAndSave = async (code: string) => {
+    const result = await compileLatex(code);
+    if (result.pdfUrl) {
+      setPdfUrl(result.pdfUrl);
+      if (bookId) {
+        try {
+          const response = await fetch('/api/books', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: bookId,
+              latexContent: code,
+            }),
+          });
+          if (!response.ok) {
             toast({
               title: "Error",
-              description: "Failed to connect to database",
+              description: "Failed to update book in database",
               variant: "destructive",
             });
           }
+        } catch (error) {
+          toast({
+            title: "Error",
+            description: "Failed to connect to database",
+            variant: "destructive",
+          });
         }
       }
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleLatexCodeChange = (newLatexCode: string) => {
+    setLatexCode(newLatexCode);
+    
+    if (autoCompile) {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      
+      debounceTimerRef.current = setTimeout(() => {
+        compileAndSave(newLatexCode);
+      }, 3000);
     }
   };
 
@@ -131,17 +149,13 @@ const SplitView: React.FC<SplitViewProps> = ({
                 const newValue = target.value;
                 const cursorPosition = target.selectionStart;
                 
-                if (debounceTimerRef.current) {
-                  clearTimeout(debounceTimerRef.current);
-                }
+                // Immediately update state
+                handleLatexCodeChange(newValue);
                 
-                debounceTimerRef.current = setTimeout(() => {
-                  handleLatexCodeChange(newValue);
-                  // Restore cursor position after state update
-                  requestAnimationFrame(() => {
-                    target.setSelectionRange(cursorPosition, cursorPosition);
-                  });
-                }, 3000);
+                // Restore cursor position after state update
+                requestAnimationFrame(() => {
+                  target.setSelectionRange(cursorPosition, cursorPosition);
+                });
               }}
               placeholder="Enter LaTeX code here"
               className="font-mono h-full"
