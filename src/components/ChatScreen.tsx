@@ -151,6 +151,13 @@ const ChatScreen: React.FC<ChatScreenProps> = ({onCreate, latexCode = '', chatHi
     setPrompt(''); // Clear the prompt input after sending
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
   return (
     <div className="flex flex-col h-full p-4">
       <div
@@ -172,15 +179,47 @@ const ChatScreen: React.FC<ChatScreenProps> = ({onCreate, latexCode = '', chatHi
         ))}
       </div>
       <div className="flex items-center space-x-2 mt-2">
-        <Textarea
-          value={prompt}
-          onChange={e => setPrompt(e.target.value)}
-          placeholder="Enter your prompt here"
-          className="flex-grow"
-        />
-        <Button onClick={handleSend} disabled={loading}>
-          {loading ? 'Loading...' : 'Send'}
-        </Button>
+        <div className="flex-grow relative">
+          <Textarea
+            value={prompt}
+            onChange={e => setPrompt(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Enter your prompt here"
+            className="pr-12 rounded-lg"
+            rows={1}
+          />
+          <Button 
+            onClick={handleSend} 
+            disabled={loading || !prompt.trim()}
+            className={`absolute right-2 bottom-2 h-8 w-8 p-0 transition-colors ${
+              !prompt.trim() 
+                ? 'bg-primary hover:bg-muted text-primary-foreground' 
+                : 'bg-primary hover:bg-primary/90 text-primary-foreground'
+            }`}
+            variant="ghost"
+          >
+            {loading ? (
+              <span className="h-4 w-4 animate-spin">⟳</span>
+            ) : (
+              <svg 
+                width="16" 
+                height="16" 
+                viewBox="0 0 24 24" 
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="-rotate-90"
+              >
+                <path 
+                  d="M5 12H19M19 12L12 5M19 12L12 19" 
+                  stroke="currentColor" 
+                  strokeWidth="2" 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round"
+                />
+              </svg>
+            )}
+          </Button>
+        </div>
       </div>
     </div>
   );
