@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import Link from 'next/link';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -61,6 +62,12 @@ export default function LoginPage() {
           <Button type="submit" className="w-full">
             Login
           </Button>
+          <p className="text-center mt-4">
+            Don't have an account?{' '}
+            <Link href="/register" className="text-blue-600 hover:underline">
+              Register
+            </Link>
+          </p>
         </form>
       </Card>
     </div>
