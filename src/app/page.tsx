@@ -30,6 +30,8 @@ export default function Home() {
           latexCode={latexCode}
           chatHistory={chatHistory}
           setChatHistory={setChatHistory}
+          mode="seed"
+          compact={true}
         />
       ) : (
         <SplitView 

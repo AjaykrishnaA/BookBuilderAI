@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useState, CSSProperties } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 
 interface ChatInputProps {
   onSend: (message: string) => void;
   loading: boolean;
+  placeholder?: string;
+  minWidth?: CSSProperties['minWidth'];
 }
 
-const ChatInput: React.FC<ChatInputProps> = ({ onSend, loading }) => {
+const ChatInput: React.FC<ChatInputProps> = ({ onSend, loading, placeholder = 'Enter your prompt here', minWidth }) => {
   const [prompt, setPrompt] = useState<string>('');
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -24,13 +26,16 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, loading }) => {
   };
 
   return (
-    <div className="flex items-center space-x-2 mt-2">
+    <div
+      className="flex items-center space-x-2 mt-2"
+      style={minWidth ? { minWidth } : { minWidth: 420, width: '100%' }}
+    >
       <div className="flex-grow relative">
         <Textarea
           value={prompt}
           onChange={e => setPrompt(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Enter your prompt here"
+          placeholder={placeholder}
           className="pr-12 rounded-lg"
           rows={1}
         />

@@ -12,9 +12,11 @@ interface ChatScreenProps {
   latexCode?: string;
   chatHistory: {role: 'user' | 'assistant'; chatMessage: string}[];
   setChatHistory: React.Dispatch<React.SetStateAction<{role: 'user' | 'assistant'; chatMessage: string}[]>>;
+  mode?: 'seed' | 'chat';
+  compact?: boolean;
 }
 
-const ChatScreen: React.FC<ChatScreenProps> = ({onCreate, latexCode = '', chatHistory, setChatHistory}) => {
+const ChatScreen: React.FC<ChatScreenProps> = ({onCreate, latexCode = '', chatHistory, setChatHistory, mode = 'chat', compact = false}) => {
   const [loading, setLoading] = useState<boolean>(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const { compileLatex, isCompiling } = useLatexCompiler();
@@ -148,29 +150,65 @@ const ChatScreen: React.FC<ChatScreenProps> = ({onCreate, latexCode = '', chatHi
     }
   };
 
-  return (
-    <div className="flex flex-col h-full p-4">
-      <div
-        ref={chatContainerRef}
-        className="chat-scrollbar flex-grow min-h-0 max-h-[78.5vh] space-y-4 overflow-y-auto"
-      >
-        {chatHistory.map((message, index) => (
-          <div key={index} className="w-full flex px-2">
-            <div
-              className={`p-3 rounded-lg max-w-[75%] break-words inline-block ${
-                message.role === 'user'
-                  ? 'bg-secondary text-secondary-foreground self-end ml-auto'
-                  : 'bg-muted text-muted-foreground self-start mr-auto'
-              }`}
-            >
-              {message.chatMessage}
+  const mainContent = (
+    <div className={`flex flex-col h-full p-4`}>
+      {mode === 'seed' && chatHistory.length === 0 ? (
+        <div>
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-2/5 flex flex-col items-center">
+            <div className="w-full flex flex-col items-center">
+              <ChatInput 
+                onSend={handleSend} 
+                loading={loading} 
+                placeholder={'Describe your book idea or topic...'}
+              />
             </div>
           </div>
-        ))}
-      </div>
-      <ChatInput onSend={handleSend} loading={loading} />
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full z-20 w-full flex flex-col items-center justify-end pb-6 pointer-events-none" style={{height: '50vh'}}>
+            <div className="w-full">
+              <h2 className="text-2xl font-semibold mb-2 text-gray-700 w-full text-center">What can I help you create today?</h2>
+              <p className="text-gray-500 text-center mb-4 max-w-md w-full mx-auto">Describe your book idea, topic, or anything you'd like to write about. I'll help you get started!</p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div
+            ref={chatContainerRef}
+            className="chat-scrollbar flex-grow min-h-0 max-h-[78.5vh] space-y-4 overflow-y-auto"
+          >
+            {chatHistory.map((message, index) => (
+              <div key={index} className="w-full flex px-2">
+                <div
+                  className={`p-3 rounded-lg max-w-[75%] break-words inline-block ${
+                    message.role === 'user'
+                      ? 'bg-secondary text-secondary-foreground self-end ml-auto'
+                      : 'bg-muted text-muted-foreground self-start mr-auto'
+                  }`}
+                >
+                  {message.chatMessage}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="z-10 w-full flex flex-col items-center">
+            <div className="w-full flex flex-col items-center">
+              <ChatInput 
+                onSend={handleSend} 
+                loading={loading} 
+                placeholder={'Describe your book idea or topic...'}
+              />
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
+
+  return compact ? (
+    <div className="w-2/5 max-w-full mx-auto h-full flex flex-col justify-center items-center">
+      {mainContent}
+    </div>
+  ) : mainContent;
 };
 
 export default ChatScreen;
