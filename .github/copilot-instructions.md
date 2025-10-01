@@ -1,0 +1,1 @@
+For any implementation request, first provide a clear comprehensive plan of the solution you are thinking of/implementing. Then, only after I confirm, should you implement it in the code.
