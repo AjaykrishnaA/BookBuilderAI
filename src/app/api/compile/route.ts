@@ -14,10 +14,15 @@ export async function GET(req: Request) {
       )
     }
 
-    // Use the new endpoint and parameter name 'text'
-    // const apiUrl = `https://latexonline.cc/compile?text=${encodeURIComponent(latexCode)}`;
-    // const apiUrl = `http://localhost:2700/compile?text=${encodeURIComponent(latexCode)}`;
-    const apiUrl = `http://latexonline.ajaylabs.space/compile?text=${encodeURIComponent(latexCode)}`;
+    // Use the environment variable for the LaTeX online API URL
+    const baseUrl = process.env.LATEX_ONLINE_API_URL;
+    if (!baseUrl) {
+      return NextResponse.json(
+        { error: 'LATEX_ONLINE_API_URL environment variable is not set' },
+        { status: 500 }
+      );
+    }
+    const apiUrl = `${baseUrl}/compile?text=${encodeURIComponent(latexCode)}`;
 
     try {
       // The new endpoint might directly return the PDF, or a JSON response.
